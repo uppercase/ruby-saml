@@ -10,6 +10,8 @@ module Onelogin
   include REXML
     class Authrequest
       def create(settings, params = {})
+        params = {} if params.nil?
+
         request_doc = create_authentication_xml_doc(settings)
 
         request = ""
