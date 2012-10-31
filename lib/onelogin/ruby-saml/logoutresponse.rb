@@ -1,5 +1,8 @@
 require "xml_security"
 require "time"
+require "base64"
+require "zlib"
+require "open-uri"
 
 module Onelogin
   module Saml
@@ -14,6 +17,7 @@ module Onelogin
       attr_reader :document
       attr_reader :options
       attr_reader :response
+      attr_reader :raw_response
       attr_reader :in_response_to, :issuer
 
       #
@@ -29,19 +33,7 @@ module Onelogin
         self.settings = settings
 
         @options = options
-        @response = response
-
-        if response =~ /</
-          @response = response
-        else
-          @response = Base64.decode64(response)
-        end
-
-        begin
-          @document = XMLSecurity::SignedDocument.new(response)
-        rescue REXML::ParseException => e
-          raise e
-        end
+        @raw_response = response
 
         parse_logoutresponse
       end
@@ -65,7 +57,37 @@ module Onelogin
 
       private
 
+      # TODO: move these to a helper?
+      def decode(encoded)
+        Base64.decode64(encoded)
+      end
+      def inflate(deflated)
+        zlib = Zlib::Inflate.new(-Zlib::MAX_WBITS)
+        zlib.inflate(deflated)
+      end
+
+      # TODO: This is pretty ugly... Mimic an applicative functor?
+      def parse_samlresponse!
+        return if @response =~ /^</
+
+        if raw_response =~ /^</
+          @response = raw_response
+        else
+          @response = ((decoded = decode(raw_response)) =~ /^</) ? decoded : inflate(decoded)
+        end
+
+        raise Exception.new("Couldn't decode SAMLResponse") unless @response =~ /^</
+      end
+
       def parse_logoutresponse
+        parse_samlresponse!
+
+        begin
+          @document = XMLSecurity::SignedDocument.new(response)
+        rescue REXML::ParseException => e
+          raise e
+        end
+
         @in_response_to ||= begin
           node = REXML::XPath.first(document, "/p:LogoutResponse", { "p" => PROTOCOL, "a" => ASSERTION })
           node.nil? ? nil : node.attributes['InResponseTo']
@@ -124,7 +146,7 @@ module Onelogin
       end
 
       def valid_issuer?(soft = true)
-        unless issuer == self.settings.issuer
+        unless URI.parse(issuer) == URI.parse(self.settings.issuer)
           return soft ? false : validation_error("Doesn't match the issuer, expected: <#{self.settings.issuer}>, but was: <#{issuer}>")
         end
         true
