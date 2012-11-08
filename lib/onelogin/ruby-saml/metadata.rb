@@ -12,8 +12,8 @@ module Onelogin
     class Metadata
       def generate(settings)
         meta_doc = REXML::Document.new
-        root = meta_doc.add_element "md:EntityDescriptor", { 
-            "xmlns:md" => "urn:oasis:names:tc:SAML:2.0:metadata" 
+        root = meta_doc.add_element "md:EntityDescriptor", {
+            "xmlns:md" => "urn:oasis:names:tc:SAML:2.0:metadata"
         }
         sp_sso = root.add_element "md:SPSSODescriptor", {
             "protocolSupportEnumeration" => "urn:oasis:names:tc:SAML:2.0:protocol",
@@ -59,8 +59,7 @@ module Onelogin
 
         Logging.debug "Generated metadata:\n#{ret}"
 
-        return ret
-
+        ret
       end
     end
   end
