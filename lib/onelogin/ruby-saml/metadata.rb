@@ -32,6 +32,13 @@ module Onelogin
               "Location" => settings.assertion_consumer_service_url
           }
         end
+        if settings.assertion_consumer_logout_service_url != nil
+          sp_sso.add_element "md:SingleLogoutService", {
+              # Add this as a setting to create different bindings?
+              "Binding" => "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect",
+              "Location" => settings.assertion_consumer_logout_service_url
+          }
+        end
         meta_doc << REXML::XMLDecl.new
         ret = ""
         # pretty print the XML so IdP administrators can easily see what the SP supports
